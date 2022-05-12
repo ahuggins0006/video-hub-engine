@@ -11,7 +11,6 @@
     (apply str out " " in "\n"))
   )
 
-_#VIDEO OUTPUT ROUTING:  "\n\n"
 (route-cmd->req 1 4)
 ;; => "\n0 3\n"
 

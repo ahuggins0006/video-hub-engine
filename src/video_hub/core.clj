@@ -1,43 +1,14 @@
 (ns video-hub.core
   (:require
-   [aleph.tcp :as tcp]
-   [gloss.io :as io]
-   [gloss.core :as gloss]
-   [manifold.deferred :as d]
    [manifold.stream :as s]
    [clojure.string :as str]
-   [clojure.java.shell :as shell]
    [video-hub.layout :as lo]
+   [video-hub.client :as cli]
    )
   (:gen-class))
 
-(def protocol (gloss/compile-frame (gloss/string :ascii :delimeters ["\n\n"])))
-(def protocol (gloss/compile-frame (gloss/string :ascii :delimeters [])))
 
-(def dlm-rep-string
-  (gloss/repeated
-    (gloss/string :utf-8 :delimiters ["\n\n"])
-    :delimiters ["\n\n"]))
-
-(defn wrap-duplex-stream
-  [protocol s]
-  (let [out (s/stream)]
-    (s/connect
-     (s/map #(io/encode protocol %) out)
-     s)
-    (s/splice
-     out
-     (io/decode-stream s protocol))))
-
-(defn client
-  [host port]
-  (d/chain (tcp/client {:host host, :port port})
-           #(wrap-duplex-stream protocol %)))
-
-(defn try-client [ip port] (try @(client ip port) (catch Exception e (str "caught exception: " (.getMessage e)))))
-
-(def c1 (try-client "10.10.0.30" 9990))
-c1
+(def c1 (cli/try-client "10.10.0.30" 9990))
 
 
 (def simple-routing "VIDEO OUTPUT ROUTING:\n 0 3\n\n")
@@ -50,8 +21,6 @@ c1
 (s/put! c1 req-output-labels)
 (s/put! c1 ping)
 
-
-
 (s/put! c1 lo/multi-layout-req)
 ;; network connections
 
@@ -63,13 +32,7 @@ c1
 
 (s/consume #(println %) status-period)
 
-(defn ping-something [something]
-  (case (.toLowerCase (System/getProperty "os.name"))
-    "linux"                     (#(if (= (second %) 0) true false) (first (shell/sh "ping" "-c" "1" "-W" "3" something)))
-    ("windows 10"
-     "windows 11") (str/includes? (:out (shell/sh "cmd" "/C" "powershell.exe" "Test-Connection" something "-Quiet" "-Count" "1")) "True")))
-
-(def ping-period (s/periodically 1000 #(ping-something "google.com")))
+(def ping-period (s/periodically 1000 #(cli/ping-something "google.com")))
 
 (s/consume #(prn 'message! %) ping-period)
 
@@ -77,6 +40,7 @@ c1
 (s/close! c1)
 (s/close! ping-period)
 (s/close! status-period)
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
