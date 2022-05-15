@@ -35,3 +35,4 @@
     "linux"                     (#(if (= (second %) 0) true false) (first (shell/sh "ping" "-c" "1" "-W" "3" something)))
     ("windows 10"
      "windows 11") (str/includes? (:out (shell/sh "cmd" "/C" "powershell.exe" "Test-Connection" something "-Quiet" "-Count" "1")) "True")))
+

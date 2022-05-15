@@ -16,33 +16,27 @@
 ;; => "\n0 3\n"
 
 ;; build layout/scene map
-
-(def louts {:layouts
-            {:l1 {:r1 {:out 1
-                       :in  4}
-                  :r2 {:out 2
-                       :in 5}
-                  }}})
-
-(-> louts :layouts)
-;; => {:l1 {:r1 {:out 1, :in 4}, :r2 {:out 2, :in 5}}}
+(def louts
+  {:layout {1 {:out 1
+             :in  4}
+        2 {:out 2
+             :in 5}
+        }})
 
 
 (defn layout->routes
   [layout]
   (let [routes (vals layout)]
-    (vals (first routes))
-    )
-  )
+    routes))
 
-(layout->routes (:layouts louts))
+(layout->routes (:layout louts))
 ;; => ({:out 1, :in 4} {:out 2, :in 5})
 
-(map #(route-cmd->req (:out %) (:in %))(layout->routes (:layouts louts)))
-;; => ("VIDEO OUTPUT ROUTING:\n0 3\n\n" "VIDEO OUTPUT ROUTING:\n1 4\n\n")
+(map #(route-cmd->req (:out %) (:in %))(layout->routes (:layout louts)))
+;; => ("0 3\n" "1 4\n")
 
-(apply str (map #(route-cmd->req (:out %) (:in %))(layout->routes (:layouts louts))))
-;; => "VIDEO OUTPUT ROUTING:\n0 3\n\nVIDEO OUTPUT ROUTING:\n1 4\n\n"
+(apply str (map #(route-cmd->req (:out %) (:in %))(layout->routes (:layout louts))))
+;; => "0 3\n1 4\n"
 
 (defn layout->routes-reqs
   [layout]
@@ -58,6 +52,7 @@
     ))
 
 (def multi-layout-req (layout->routes-reqs louts))
+multi-layout-req
 
 (def sample-status "VIDEO OUTPUT ROUTING:\n0 3\n1 1\n2 1\n3 1\n4 1\n5 1\n6 1\n7 1\n8 1\n9 1\n10 1\n11 1\n12 1\n13 1\n14 1\n15 1\n16 1\n17 1\n18 1\n19 0\n\n" )
 
