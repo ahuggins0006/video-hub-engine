@@ -9,8 +9,6 @@
    [clojure.string :as str]
    ))
 
-;;(def protocol (gloss/compile-frame (gloss/string :ascii :delimeters ["\n\n"])))
-
 (def protocol (gloss/compile-frame (gloss/string :ascii :delimeters [])))
 
 (defn wrap-duplex-stream

@@ -2,16 +2,14 @@
   (:require
    [cljfx.api :as fx]
    [manifold.stream :as s]
-   [clojure.pprint :as pprint]
    [clojure.string :as str]
+   [clojure.pprint :as pprint]
    [clojure.edn :as edn]
    [video-hub.layout :as lo]
-   [video-hub.client :as cli]
-   )
+   [video-hub.client :as cli])
   (:import [javafx.stage FileChooser]
            [javafx.event ActionEvent]
-           [javafx.scene Node])
-  )
+           [javafx.scene Node]))
 
 
 (def *state
@@ -22,15 +20,19 @@
           :connection nil
           :connected false
           :items []
+          :client nil
           }))
 
-(:connected? @*state)
-
-
-(def data (edn/read-string (slurp "/data/fcs/projects/video-hub-engine/resources/layouts.edn")))
-(map inc (sort (mapv :out (vals (:layout data)))))
-
 (defmulti handle ::event)
+
+(defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
+  (let [window (.getWindow (.getScene ^Node (.getTarget event)))
+        chooser (doto (FileChooser.)
+                  (.setTitle "Save Current Layout"))]
+    (when-let [file (.showSaveDialog chooser window)]
+
+      (spit file (with-out-str (clojure.pprint/write (:layout @*state))
+                                                     :dispatch clojure.pprint/code-dispatch)))))
 
 (defmethod handle ::open-file [{:keys [^ActionEvent fx/event]}]
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
@@ -50,18 +52,31 @@
        state
         ))))
 
-(defmethod handle ::exit [{:keys [^ActionEvent fx/event]}]
-  (System/exit 0))
-
 (defmethod handle ::update-route [{:keys [^ActionEvent fx/event]}]
   (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (:output @*state) " " (:input @*state) "\n\n") 1000)
   (println (str "sending " (:output @*state) " " (:input @*state))))
 
+
+(defn update-status! [status]
+  (println (str @status))
+  (comment (let [layout-status (rest (str/split status #"\n"))
+                 layout (lo/status->layout layout-status)]
+             (swap! *state assoc :layout layout)
+             ))
+  )
+
 (defn connect! [_]
   (swap! *state assoc :client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state))))
-  (swap! *state assoc :connected? (str/includes? (s/try-put! (:client @*state) "HELLO CLOJURE!" 1000 ) "Success"))
+  (swap! *state assoc :connected? (str/includes? (str (s/try-put! (:client @*state) "HELLO CLOJURE!" 1000 )) "Success"))
+  (if (:connected? @*state)
+    (let [status-req "OUTPUT LABELS:\n\n"
+          status-period (s/periodically 2000 #(s/try-put! (:client @*state) status-req 1000))]
+      (s/consume #(update-status! %) status-period)
+      ))
   )
+
 (defn set-output! [x] (swap! *state assoc :output x))
+
 (defn set-input! [x] (swap! *state assoc :input x))
 
 (defn root-view [{:keys [file layout items output input connection connected? client]}]
@@ -112,6 +127,10 @@
                                           :on-action {::event ::update-route}
                                           }
                                          {:fx/type :button
+                                          :text "Save current layout"
+                                          :on-action {::event ::save-file}
+                                          }
+                                         {:fx/type :button
                                           :text "EXIT"
                                           :on-action (fn [_] (System/exit 0))
                                           }
@@ -130,7 +149,7 @@
                (fx/wrap-effects {:state (fx/make-reset-effect *state)
                                  :dispatch fx/dispatch-effect}))}))
 
-(fx/mount-renderer *state renderer)
+(comment (fx/mount-renderer *state renderer))
 
-(renderer)
+
 
