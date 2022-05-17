@@ -19,14 +19,16 @@
           :connection nil
           :items []
           :client nil
-          :layout-status ""
+          :layout nil
+          :layout-status nil
           }))
 
 (defmulti handle ::event)
 
-(defmethod handle ::change-layout [{:keys [^ActionEvent fx/event]}]
+(defn change-layout! [_]
   (when (:connected? @*state)
-    (s/try-put! (:client @*state) (lo/layout->routes-reqs (:layout @*state)) 1000)))
+    (println (:layout (:layout @*state)))
+    (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
 
 (defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
@@ -48,20 +50,24 @@
                            :connection (:connection data)
                            :items (sort (mapv :out (vals (:layout data))))
                            }}]
-       (reset! *state state) 
+       (reset! *state state)
        state
         ))))
 
 (defmethod handle ::update-route [{:keys [^ActionEvent fx/event]}]
-  (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (:output @*state) " " (:input @*state) "\n\n") 1000))
+  (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000))
+
+(defn update-route! [_]
+  (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000))
 
 (defn update-layout-status! [status]
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
           layout {:layout (lo/status->layout layout-status)
                   :connection (:connection @*state)}]
-      (when ((= (count layout) (count (:items @*state))))
-        (swap! *state assoc :layout-status layout)))))
+      (when (= (count (:layout layout)) (count (:items @*state)))
+        (swap! *state assoc :layout-status layout)
+        ))))
 
 (defn update-status! []
   (let [c (:client @*state)
@@ -69,24 +75,23 @@
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         ]
     (s/consume #(if (str/includes? % "ROUTING") (update-layout-status! %)) c)
-    (s/consume #(println %) (s/periodically 2000 #(s/try-put! c req-output-routing 1000)))
+    (s/consume #(println %) (s/periodically 1000 #(s/try-put! c req-output-routing 1000)))
     )
   )
 
 (defn connect! [_]
   (let [client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))]
-    (swap! *state assoc :connected? (str/includes? (s/try-put! client "PING:\n\n" 1000) "Success"))
+    (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 1000)) "Success"))
     (if (:connected? @*state)
       (do
         (swap! *state assoc :client client)
         (update-status!))
       (swap! *state assoc :connected? false))))
 
-(defn set-output! [x] (swap! *state assoc :output (dec x)))
+(defn set-output! [x] (swap! *state assoc :output x))
 
-(defn set-input! [x] (swap! *state assoc :input (dec x)))
+(defn set-input! [x] (swap! *state assoc :input x))
 
-(defn inc-route-pair [p] {:out (inc (:out p)) :in (inc (:in p))})
 
 (defn root-view [{:keys [file layout layout-status items output input connection connected? client]}]
   {:fx/type :stage
@@ -132,7 +137,7 @@
                                                                   :items items}]}]}
                                          {:fx/type :button
                                           :text "Update route..."
-                                          :on-action {::event ::update-route}}
+                                          :on-action update-route!}
                                          ]}
                              {:fx/type :h-box
                               :spacing 30
@@ -148,7 +153,7 @@
                                                                         (into [] (vals (:layout layout))))))}
                                                      {:fx/type :button
                                                       :text "Change layout via file"
-                                                      :on-action {::event ::change-layout}}
+                                                      :on-action change-layout!}
                                                      ]}
                                          {:fx/type :v-box
                                           :spacing 5
@@ -158,9 +163,8 @@
                                                       :editable false
                                                       :text (with-out-str
                                                               (pprint/print-table
-                                                               (map inc-route-pair
-                                                                    (sort-by first
-                                                                             (into [] (vals (:layout layout-status)))))))}
+                                                               (sort-by first
+                                                                        (into [] (map lo/inc-route-pair (vals (:layout layout-status)))))))}
                                                      {:fx/type :button
                                                       :text "Save current layout"
                                                       :on-action {::event ::save-file}}

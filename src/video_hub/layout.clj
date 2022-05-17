@@ -85,3 +85,7 @@ sample-layout
 
 (status->table sample-layout)
 ;; => "\n| :out | :in |\n|------+-----|\n|    0 |   3 |\n|    1 |   1 |\n|    2 |   1 |\n|    3 |   1 |\n|    4 |   1 |\n|    5 |   1 |\n|    6 |   1 |\n|    7 |   1 |\n|    8 |   1 |\n|    9 |   1 |\n|   10 |   1 |\n|   11 |   1 |\n|   12 |   1 |\n|   13 |   1 |\n|   14 |   1 |\n|   15 |   1 |\n|   16 |   1 |\n|   17 |   1 |\n|   18 |   1 |\n|   19 |   0 |\n"
+
+(defn inc-route-pair [p] {:out (inc (:out p)) :in (inc (:in p))})
+
+(map inc-route-pair (vals (status->layout sample-layout)))
