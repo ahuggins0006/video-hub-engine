@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.pprint :as pprint]
    [clojure.edn :as edn]
+   [clojure.java.io :as io]
    [video-hub.layout :as lo]
    [video-hub.client :as cli])
   (:import [javafx.stage FileChooser]
@@ -36,7 +37,7 @@
                   (.setTitle "Save Current Layout"))]
     (when-let [file (.showSaveDialog chooser window)]
 
-      (spit file (with-out-str (clojure.pprint/write (:layout @*state))
+      (spit file (with-out-str (clojure.pprint/write (:layout-status @*state))
                                :dispatch clojure.pprint/code-dispatch)))))
 
 (defmethod handle ::open-file [{:keys [^ActionEvent fx/event]}]
@@ -48,6 +49,8 @@
             state {:state {:file file
                            :layout data
                            :connection (:connection data)
+                           :connected? (:connected? @*state)
+                           :client     (:client @*state)
                            :items (sort (mapv :out (vals (:layout data))))
                            }}]
        (reset! *state state)
@@ -71,11 +74,10 @@
 
 (defn update-status! []
   (let [c (:client @*state)
-        ;(cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         ]
     (s/consume #(if (str/includes? % "ROUTING") (update-layout-status! %)) c)
-    (s/consume #(println %) (s/periodically 1000 #(s/try-put! c req-output-routing 1000)))
+    (s/consume #(%) (s/periodically 1000 #(s/try-put! c req-output-routing 1000)))
     )
   )
 
@@ -97,8 +99,8 @@
   {:fx/type :stage
    :title "Video Hub Layout Control"
    :showing true
-   :width 800
-   :height 600
+   :width 1600
+   :height 1200
    :scene {:fx/type :scene
            :root {:fx/type :v-box
                   :padding 30
@@ -142,25 +144,32 @@
                              {:fx/type :h-box
                               :spacing 30
                               :children [{:fx/type :v-box
-                                          :spacing 3
+                                          :spacing 5
                                           :children [{:fx/type :label
+                                                      :pref-width 200
+                                                      :wrap-text true
                                                       :text (str file)}
                                                      {:fx/type :text-area
                                                       :editable false
+                                                      :pref-height 400
+                                                      :pref-width 200
                                                       :text (with-out-str
                                                               (pprint/print-table
                                                                (sort-by first
                                                                         (into [] (vals (:layout layout))))))}
                                                      {:fx/type :button
-                                                      :text "Change layout via file"
+                                                      :text "Send layout"
                                                       :on-action change-layout!}
                                                      ]}
                                          {:fx/type :v-box
                                           :spacing 5
+                                          :padding 15
                                           :children [{:fx/type :label
                                                       :text "Current layout status"}
                                                      {:fx/type :text-area
                                                       :editable false
+                                                      :pref-height 400
+                                                      :pref-width 200
                                                       :text (with-out-str
                                                               (pprint/print-table
                                                                (sort-by first

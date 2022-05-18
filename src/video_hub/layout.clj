@@ -23,7 +23,6 @@
              :in 5}
         }})
 
-
 (defn layout->routes
   [layout]
   (let [routes (vals layout)]
@@ -89,3 +88,4 @@ sample-layout
 (defn inc-route-pair [p] {:out (inc (:out p)) :in (inc (:in p))})
 
 (map inc-route-pair (vals (status->layout sample-layout)))
+;; => ({:out 1, :in 4} {:out 2, :in 2} {:out 3, :in 2} {:out 4, :in 2} {:out 5, :in 2} {:out 6, :in 2} {:out 7, :in 2} {:out 8, :in 2} {:out 9, :in 2} {:out 10, :in 2} {:out 11, :in 2} {:out 12, :in 2} {:out 13, :in 2} {:out 14, :in 2} {:out 15, :in 2} {:out 16, :in 2} {:out 17, :in 2} {:out 18, :in 2} {:out 19, :in 2} {:out 20, :in 1})
