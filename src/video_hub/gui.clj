@@ -24,6 +24,7 @@
           :layout-status nil
           }))
 
+(declare connect!)
 (defmulti handle ::event)
 
 (defn change-layout! [_]
@@ -37,7 +38,9 @@
                   (.setTitle "Save Current Layout"))]
     (when-let [file (.showSaveDialog chooser window)]
 
-      (spit file (with-out-str (clojure.pprint/write (:layout-status @*state))
+      (spit file (with-out-str (clojure.pprint/write (assoc (:layout-status @*state) :layout (into {} (for [v (:layout (:layout-status @*state))]
+                                                                                                        {(key v) (lo/inc-route-pair (val v))})))
+                                                    )
                                :dispatch clojure.pprint/code-dispatch)))))
 
 (defmethod handle ::open-file [{:keys [^ActionEvent fx/event]}]
@@ -53,15 +56,10 @@
                            :client     (:client @*state)
                            :items (sort (mapv :out (vals (:layout data))))
                            }}]
+       (when (:connected? @*state) (connect! "")) ;;refresh connection in opening another file
        (reset! *state state)
        state
         ))))
-
-(defmethod handle ::update-route [{:keys [^ActionEvent fx/event]}]
-  (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000))
-
-(defn update-route! [_]
-  (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000))
 
 (defn update-layout-status! [status]
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
@@ -89,6 +87,16 @@
         (swap! *state assoc :client client)
         (update-status!))
       (swap! *state assoc :connected? false))))
+
+(defn update-route! [_]
+  (when (and (:connected? @*state)
+             (some? (:output @*state))
+             (some? (:input @*state)))
+    (println (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
+    (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)
+    (connect! "")
+    ))
+
 
 (defn set-output! [x] (swap! *state assoc :output x))
 
