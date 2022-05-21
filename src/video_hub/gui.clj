@@ -6,6 +6,11 @@
    [clojure.pprint :as pprint]
    [clojure.edn :as edn]
    [clojure.java.io :as io]
+   [taoensso.timbre :as timbre
+    :refer [log  trace  debug  info  warn  error  fatal  report
+            logf tracef debugf infof warnf errorf fatalf reportf
+            spy get-env]]
+   [taoensso.timbre.appenders.core :as appenders]
    [video-hub.layout :as lo]
    [video-hub.client :as cli])
   (:import [javafx.stage FileChooser]
@@ -29,7 +34,7 @@
 
 (defn change-layout! [_]
   (when (:connected? @*state)
-    (println (:layout (:layout @*state)))
+    (connect! "")
     (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
 
 (defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
@@ -62,6 +67,7 @@
         ))))
 
 (defn update-layout-status! [status]
+  (info (str "received: " status ))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
           layout {:layout (lo/status->layout layout-status)
@@ -73,9 +79,10 @@
 (defn update-status! []
   (let [c (:client @*state)
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
+        p (s/periodically 500 #(s/try-put! c req-output-routing 1000))
         ]
-    (s/consume #(if (str/includes? % "ROUTING") (update-layout-status! %)) c)
-    (s/consume #(%) (s/periodically 1000 #(s/try-put! c req-output-routing 1000)))
+    (s/consume #(if (and (str/includes? % "\n\n") (str/includes? % "ROUTING")) (update-layout-status! %)) c)
+    (s/consume #(deref %) p)
     )
   )
 
@@ -93,8 +100,8 @@
              (some? (:output @*state))
              (some? (:input @*state)))
     (println (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
-    (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)
     (connect! "")
+    (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)
     ))
 
 
@@ -107,8 +114,8 @@
   {:fx/type :stage
    :title "Video Hub Layout Control"
    :showing true
-   :width 1600
-   :height 1200
+   :width  900
+   :height 700
    :scene {:fx/type :scene
            :root {:fx/type :v-box
                   :padding 30

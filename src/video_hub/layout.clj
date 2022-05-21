@@ -62,8 +62,9 @@ multi-layout-req
 sample-layout
 ;; => ("0 3" "1 1" "2 1" "3 1" "4 1" "5 1" "6 1" "7 1" "8 1" "9 1" "10 1" "11 1" "12 1" "13 1" "14 1" "15 1" "16 1" "17 1" "18 1" "19 0")
 
-(def one-layout '("0 3"))
+(def one-layout '("0 "))
 
+(last "0 ")
 (defn two-str->tuple [s] (map #(Integer/parseInt %)(str/split s #" ")))
 
 
@@ -72,6 +73,8 @@ sample-layout
         routes     (map (fn [r] {:out (first (two-str->tuple r))
                                  :in (last (two-str->tuple r))}) lo-status)]
     (into (sorted-map) (zipmap route-keys routes))))
+
+(status->layout one-layout)
 (status->layout sample-layout)
 ;; => {1 {:out 0, :in 3}, 2 {:out 1, :in 1}, 3 {:out 2, :in 1}, 4 {:out 3, :in 1}, 5 {:out 4, :in 1}, 6 {:out 5, :in 1}, 7 {:out 6, :in 1}, 8 {:out 7, :in 1}, 9 {:out 8, :in 1}, 10 {:out 9, :in 1}, 11 {:out 10, :in 1}, 12 {:out 11, :in 1}, 13 {:out 12, :in 1}, 14 {:out 13, :in 1}, 15 {:out 14, :in 1}, 16 {:out 15, :in 1}, 17 {:out 16, :in 1}, 18 {:out 17, :in 1}, 19 {:out 18, :in 1}, 20 {:out 19, :in 0}}
 
@@ -101,4 +104,5 @@ sample-layout
 
 (map #(update-in (:layout save-test) [%] inc-route-pair) save-test)
 
+(for [v (:layout save-test)] v)
 (assoc save-test :layout (into {} (for [v (:layout save-test)] {(key v) (inc-route-pair (val v))})))

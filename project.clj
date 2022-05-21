@@ -7,6 +7,7 @@
                  [aleph/aleph "0.4.7-alpha10"]
                  [gloss/gloss "0.2.6"]
                  [manifold/manifold "0.2.3"]
+                 [com.taoensso/timbre "5.2.1"]
                  [cljfx/cljfx "1.7.19"]
                  [org.openjfx/javafx-base "18"]
                  [org.openjfx/javafx-base "18" :classifier "linux"]
