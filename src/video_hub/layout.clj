@@ -6,7 +6,7 @@
 
 
 (defn route-cmd->req
-  [output input]
+  [input output]
   (let [out (str (dec output))
         in  (str (dec input))]
     (apply str out " " in "\n"))
@@ -17,10 +17,10 @@
 
 ;; build layout/scene map
 (def louts
-  {:layout {1 {:out 1
-             :in  4}
-        2 {:out 2
-             :in 5}
+  {:layout {1 {:in 1
+             :out  4}
+        2 {:in 2
+             :out 5}
         }})
 
 (defn layout->routes
@@ -29,13 +29,13 @@
     routes))
 
 (layout->routes (:layout louts))
-;; => ({:out 1, :in 4} {:out 2, :in 5})
+;; => ({:in 1, :out 4} {:in 2, :out 5})
 
-(map #(route-cmd->req (:out %) (:in %))(layout->routes (:layout louts)))
-;; => ("0 3\n" "1 4\n")
+(map #(route-cmd->req (:in %) (:out %))(layout->routes (:layout louts)))
+;; => ("3 0\n" "4 1\n")
 
-(apply str (map #(route-cmd->req (:out %) (:in %))(layout->routes (:layout louts))))
-;; => "0 3\n1 4\n"
+(apply str (map #(route-cmd->req (:in %) (:out %))(layout->routes (:layout louts))))
+;; => "3 0\n4 1\n"
 
 (defn layout->routes-reqs
   [layout]
@@ -44,7 +44,7 @@
                     first
                     layout->routes)
         reqs   (->> routes
-                    (map #(route-cmd->req (:out %) (:in %)))
+                    (map #(route-cmd->req (:in %) (:out %)))
                     (apply str))]
     (apply str "VIDEO OUTPUT ROUTING:\n" reqs "\n")
 
@@ -52,6 +52,9 @@
 
 (def multi-layout-req (layout->routes-reqs louts))
 multi-layout-req
+
+(layout->routes-reqs louts)
+;; => "VIDEO OUTPUT ROUTING:\n0 3\n1 4\n\n"
 
 (def sample-status "VIDEO OUTPUT ROUTING:\n0 3\n1 1\n2 1\n3 1\n4 1\n5 1\n6 1\n7 1\n8 1\n9 1\n10 1\n11 1\n12 1\n13 1\n14 1\n15 1\n16 1\n17 1\n18 1\n19 0\n\n" )
 
@@ -70,8 +73,8 @@ sample-layout
 
 (defn status->layout [lo-status]
   (let [route-keys (map #(inc (.indexOf lo-status %)) lo-status)
-        routes     (map (fn [r] {:in (first (two-str->tuple r))
-                                 :out (last (two-str->tuple r))}) lo-status)]
+        routes     (map (fn [r] {:in (last (two-str->tuple r))
+                                 :out (first (two-str->tuple r))}) lo-status)]
     (into (sorted-map) (zipmap route-keys routes))))
 
 (status->layout one-layout)

@@ -36,7 +36,7 @@
                                        :connection (:connection @*state)
                                        :scenes (:scenes @*state)))))
 (defn update-layout-status! [status]
-  (info (str "received: " status))
+  (comment (debug (str "received: " status)))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
           layout {:layout (lo/status->layout layout-status)
@@ -101,7 +101,7 @@
 
       (spit file (with-out-str (clojure.pprint/write {:layout (:layout (:layout @*state))
                                                       :connection (:connection @*state)
-                                                      :scenes (:scenes @*state)} 
+                                                      :scenes (:scenes @*state)}
                                                     )
                                :dispatch clojure.pprint/code-dispatch)))))
 
@@ -189,11 +189,12 @@
                              {:fx/type :h-box
                               :spacing 30
                               :children [{:fx/type :v-box
+                                          :padding 15
                                           :spacing 5
                                           :children [{:fx/type :label
                                                       :pref-width 200
                                                       :wrap-text true
-                                                      :text (str file)}
+                                                      :text (str (last (str/split (str file) #"/")))}
                                                      {:fx/type :text-area
                                                       :editable false
                                                       :pref-height 400
@@ -223,9 +224,12 @@
                                                       :text "Save current layout"
                                                       :on-action {::event ::save-layout}}
                                                      ]}
+                                         
                                          {:fx/type :v-box
+                                          :padding 15
                                           :spacing 10
-                                          :children (scenes->buttons scenes)}]}
+                                          :children (concat [{:fx/type :label
+                                                            :text "Saved Layouts"}] (scenes->buttons scenes))}]}
                              {:fx/type :button
                               :text "EXIT"
                               :on-action (fn [_] (System/exit 0))}
@@ -233,7 +237,6 @@
                               :text "SAVE"
                               :on-action {::event ::save-file}}
                              ]}}})
-
 
 (def renderer
   (fx/create-renderer
