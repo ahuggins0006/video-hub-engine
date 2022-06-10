@@ -34,7 +34,9 @@
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
-                                       :scenes (:scenes @*state)))))
+                                       :scenes (:scenes @*state))
+                        :file scene-file)))
+
 (defn update-layout-status! [status]
   (comment (debug (str "received: " status)))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
@@ -60,6 +62,7 @@
         (update-status!))
       (swap! *state assoc :connected? false))))
 
+;; used to update a single specific route in the current layout
 (defn update-route! [_]
   (when (and (:connected? @*state)
              (some? (:output @*state))
@@ -73,12 +76,13 @@
 
 (defn set-input! [x] (swap! *state assoc :input x))
 
+;; used to dynamically create user-defined scene buttons
 (defn name->button [data]
   (let [name (name (key data))
         scene-file (val data)]
     {:fx/type :button
      :text name
-     :on-action (fn [_] (load-scene! scene-file) (println @*state))}))
+     :on-action (fn [_] (load-scene! scene-file))}))
 
 (defn scenes->buttons [scenes] (if (not-empty scenes)
                                  (->> scenes
@@ -177,14 +181,18 @@
                                                      {:fx/type :v-box
                                                       :spacing 3
                                                       :children [{:fx/type :label
-                                                                  :text "Outpt"}
+                                                                  :text "Output"}
                                                                  {:fx/type :combo-box
                                                                   :value output
                                                                   :on-value-changed set-output!
-                                                                  :items items}]}]}
-                                         {:fx/type :button
-                                          :text "Update route..."
-                                          :on-action update-route!}
+                                                                  :items items}]}
+                                                     {:fx/type :v-box
+                                                      :padding 18
+                                                      :spacing 3
+                                                      :children [{:fx/type :button
+                                                                  :text "Update route..."
+                                                                  :on-action update-route!}]}
+                                                     ]}
                                          ]}
                              {:fx/type :h-box
                               :spacing 30
@@ -224,18 +232,17 @@
                                                       :text "Save current layout"
                                                       :on-action {::event ::save-layout}}
                                                      ]}
-                                         
                                          {:fx/type :v-box
                                           :padding 15
                                           :spacing 10
                                           :children (concat [{:fx/type :label
                                                             :text "Saved Layouts"}] (scenes->buttons scenes))}]}
                              {:fx/type :button
-                              :text "EXIT"
-                              :on-action (fn [_] (System/exit 0))}
-                             {:fx/type :button
                               :text "SAVE"
                               :on-action {::event ::save-file}}
+                             {:fx/type :button
+                              :text "EXIT"
+                              :on-action (fn [_] (System/exit 0))}
                              ]}}})
 
 (def renderer
