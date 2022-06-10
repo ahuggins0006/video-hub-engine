@@ -31,6 +31,7 @@
           }))
 
 (defn load-scene! [scene-file]
+  "loads a scene-file on respective button press"
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
@@ -38,6 +39,7 @@
                         :file scene-file)))
 
 (defn update-layout-status! [status]
+  "helper for update-status! and responsible for the data that is displayed at current status"
   (comment (debug (str "received: " status)))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
@@ -46,7 +48,9 @@
       (when (= (count (:layout layout)) (count (:items @*state)))
         (swap! *state assoc :layout-status layout)))))
 
+
 (defn update-status! []
+  "periodically polls layout status from video hub"
   (let [c (:client @*state)
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         p (s/periodically 500 #(s/try-put! c req-output-routing 1000))]
@@ -54,6 +58,7 @@
     (s/consume #(deref %) p)))
 
 (defn connect! [_]
+  "establishes a connection at specified ip and port given from config file. also triggers update-status!"
   (let [client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))]
     (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 1000)) "Success"))
     (if (:connected? @*state)
@@ -62,42 +67,49 @@
         (update-status!))
       (swap! *state assoc :connected? false))))
 
-;; used to update a single specific route in the current layout
 (defn update-route! [_]
+  "used to update a single specific route in the current layout"
   (when (and (:connected? @*state)
              (some? (:output @*state))
              (some? (:input @*state)))
+    ;; TODO replace println with logging
     (println (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
     (connect! "")
     (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)))
 
+(defn set-output! [x]
+  "helper for update-route!"
+  (swap! *state assoc :output x))
 
-(defn set-output! [x] (swap! *state assoc :output x))
+(defn set-input! [x]
+  "helper for update-route!"
+  (swap! *state assoc :input x))
 
-(defn set-input! [x] (swap! *state assoc :input x))
-
-;; used to dynamically create user-defined scene buttons
 (defn name->button [data]
+  "used to dynamically create user-defined scene buttons"
   (let [name (name (key data))
         scene-file (val data)]
     {:fx/type :button
      :text name
      :on-action (fn [_] (load-scene! scene-file))}))
 
-(defn scenes->buttons [scenes] (if (not-empty scenes)
-                                 (->> scenes
-                                      (mapv name->button))
-                                 []))
+(defn scenes->buttons [scenes]
+  "transforms seq of scenes to vec of buttons"
+  (if (not-empty scenes)
+    (->> scenes
+         (mapv name->button))
+    []))
 
 (defn change-layout! [_]
+  "sends the loaded scene to the video hub. changes will be reflected in the current layout status box"
   (when (:connected? @*state)
     (connect! "")
     (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
 
-
 (defmulti handle ::event)
 
 (defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
+  "used to save the current configuration file"
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Configuration"))]
@@ -109,10 +121,11 @@
                                                     )
                                :dispatch clojure.pprint/code-dispatch)))))
 
-(defmethod handle ::save-layout [{:keys [^ActionEvent fx/event]}]
+(defmethod handle ::save-scene [{:keys [^ActionEvent fx/event]}]
+  "used to save the current layout as a user-defined scene file"
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
-                  (.setTitle "Save Current Layout"))]
+                  (.setTitle "Save Current Scene"))]
     (when-let [file (.showSaveDialog chooser window)]
       (let [name (first (str/split (last (str/split (str file) #"/")) #"\."))]
         (swap! *state assoc :scenes (conj (:scenes @*state) {(keyword name) (.getAbsolutePath file)}))
@@ -158,10 +171,10 @@
                               :spacing 15
                               :alignment :center-left
                               :children [{:fx/type :button
-                                          :text "Open config..."
+                                          :text "OPEN config..."
                                           :on-action {::event ::open-file}}
                                          {:fx/type :button
-                                          :text "Connect"
+                                          :text "CONNECT"
                                           :on-action connect!}
                                          {:fx/type :label
                                           :text (str connection)}
@@ -173,7 +186,7 @@
                                           :children [{:fx/type :v-box
                                                       :spacing 3
                                                       :children [{:fx/type :label
-                                                                  :text "Input"}
+                                                                  :text "INPUT"}
                                                                  {:fx/type :combo-box
                                                                   :value input
                                                                   :on-value-changed set-input!
@@ -181,7 +194,7 @@
                                                      {:fx/type :v-box
                                                       :spacing 3
                                                       :children [{:fx/type :label
-                                                                  :text "Output"}
+                                                                  :text "OUTPUT"}
                                                                  {:fx/type :combo-box
                                                                   :value output
                                                                   :on-value-changed set-output!
@@ -190,7 +203,7 @@
                                                       :padding 18
                                                       :spacing 3
                                                       :children [{:fx/type :button
-                                                                  :text "Update route..."
+                                                                  :text "UPDATE route..."
                                                                   :on-action update-route!}]}
                                                      ]}
                                          ]}
@@ -212,7 +225,7 @@
                                                                (sort-by first
                                                                         (into [] (vals (:layout layout))))))}
                                                      {:fx/type :button
-                                                      :text "Send layout"
+                                                      :text "SEND layout"
                                                       :on-action change-layout!}
                                                      ]}
                                          {:fx/type :v-box
@@ -229,16 +242,16 @@
                                                                (sort-by first
                                                                         (into [] (map lo/inc-route-pair (vals (:layout layout-status)))))))}
                                                      {:fx/type :button
-                                                      :text "Save current layout"
-                                                      :on-action {::event ::save-layout}}
+                                                      :text "SAVE current to scene"
+                                                      :on-action {::event ::save-scene}}
                                                      ]}
                                          {:fx/type :v-box
                                           :padding 15
                                           :spacing 10
                                           :children (concat [{:fx/type :label
-                                                            :text "Saved Layouts"}] (scenes->buttons scenes))}]}
+                                                            :text "SAVED SCENES"}] (scenes->buttons scenes))}]}
                              {:fx/type :button
-                              :text "SAVE"
+                              :text "SAVE configuration"
                               :on-action {::event ::save-file}}
                              {:fx/type :button
                               :text "EXIT"
