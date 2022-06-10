@@ -18,20 +18,20 @@
            [javafx.scene Node]))
 
 (def *state
-  (atom  {:file nil
-          :connected? false
-          :output nil
-          :input  nil
-          :connection nil
-          :items []
-          :scenes {}
-          :client nil
-          :layout nil
-          :layout-status nil
+  (atom  {:file nil           ;; current file name
+          :connected? false   ;; establised connection with video hub
+          :output nil         ;; placeholder for output combo value
+          :input  nil         ;; placeholder for output combo value
+          :connection nil     ;; connection info
+          :items []           ;; individual combo items
+          :scenes {}          ;; user-defined scenes
+          :client nil         ;; current client used for connection with video hub
+          :layout nil         ;; the layout includes a default layout, connection, and scenes
+          :layout-status nil  ;; the current layout status as given by video hub
           }))
 
 (defn load-scene! [scene-file]
-  "loads a scene-file on respective button press"
+  "Loads a scene-file on respective button press."
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
@@ -39,7 +39,7 @@
                         :file scene-file)))
 
 (defn update-layout-status! [status]
-  "helper for update-status! and responsible for the data that is displayed at current status"
+  "Helper for update-status! and responsible for the data that is displayed at current status."
   (comment (debug (str "received: " status)))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
@@ -50,7 +50,7 @@
 
 
 (defn update-status! []
-  "periodically polls layout status from video hub"
+  "Periodically polls layout status from video hub."
   (let [c (:client @*state)
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         p (s/periodically 500 #(s/try-put! c req-output-routing 1000))]
@@ -58,7 +58,7 @@
     (s/consume #(deref %) p)))
 
 (defn connect! [_]
-  "establishes a connection at specified ip and port given from config file. also triggers update-status!"
+  "Establishes a connection at specified ip and port given from config file. Also triggers update-status!"
   (let [client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))]
     (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 1000)) "Success"))
     (if (:connected? @*state)
@@ -68,7 +68,7 @@
       (swap! *state assoc :connected? false))))
 
 (defn update-route! [_]
-  "used to update a single specific route in the current layout"
+  "Used to update a single specific route in the current layout."
   (when (and (:connected? @*state)
              (some? (:output @*state))
              (some? (:input @*state)))
@@ -78,15 +78,15 @@
     (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)))
 
 (defn set-output! [x]
-  "helper for update-route!"
+  "Helper for update-route!"
   (swap! *state assoc :output x))
 
 (defn set-input! [x]
-  "helper for update-route!"
+  "Helper for update-route!"
   (swap! *state assoc :input x))
 
 (defn name->button [data]
-  "used to dynamically create user-defined scene buttons"
+  "Used to dynamically create user-defined scene buttons."
   (let [name (name (key data))
         scene-file (val data)]
     {:fx/type :button
@@ -94,14 +94,14 @@
      :on-action (fn [_] (load-scene! scene-file))}))
 
 (defn scenes->buttons [scenes]
-  "transforms seq of scenes to vec of buttons"
+  "Transforms seq of scenes to vec of buttons."
   (if (not-empty scenes)
     (->> scenes
          (mapv name->button))
     []))
 
 (defn change-layout! [_]
-  "sends the loaded scene to the video hub. changes will be reflected in the current layout status box"
+  "Sends the loaded scene to the video hub. changes will be reflected in the current layout status box."
   (when (:connected? @*state)
     (connect! "")
     (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
@@ -109,7 +109,7 @@
 (defmulti handle ::event)
 
 (defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
-  "used to save the current configuration file"
+  "Used to save the current configuration file."
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Configuration"))]
@@ -122,7 +122,7 @@
                                :dispatch clojure.pprint/code-dispatch)))))
 
 (defmethod handle ::save-scene [{:keys [^ActionEvent fx/event]}]
-  "used to save the current layout as a user-defined scene file"
+  "Used to save the current layout as a user-defined scene file."
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Scene"))]

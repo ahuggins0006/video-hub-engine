@@ -7,13 +7,14 @@
 
 (defn route-cmd->req
   [input output]
+  "Takes an input/output pair and formats them into a string to build a request to a video hub"
   (let [out (str (dec output))
         in  (str (dec input))]
     (apply str out " " in "\n"))
   )
 
 (route-cmd->req 1 4)
-;; => "\n0 3\n"
+;; => "3 0\n"
 
 ;; build layout/scene map
 (def louts
@@ -54,7 +55,7 @@
 multi-layout-req
 
 (layout->routes-reqs louts)
-;; => "VIDEO OUTPUT ROUTING:\n0 3\n1 4\n\n"
+;; => "VIDEO OUTPUT ROUTING:\n3 0\n4 1\n\n"
 
 (def sample-status "VIDEO OUTPUT ROUTING:\n0 3\n1 1\n2 1\n3 1\n4 1\n5 1\n6 1\n7 1\n8 1\n9 1\n10 1\n11 1\n12 1\n13 1\n14 1\n15 1\n16 1\n17 1\n18 1\n19 0\n\n" )
 
@@ -92,6 +93,9 @@ sample-layout
 ;; => "\n| :out | :in |\n|------+-----|\n|    0 |   3 |\n|    1 |   1 |\n|    2 |   1 |\n|    3 |   1 |\n|    4 |   1 |\n|    5 |   1 |\n|    6 |   1 |\n|    7 |   1 |\n|    8 |   1 |\n|    9 |   1 |\n|   10 |   1 |\n|   11 |   1 |\n|   12 |   1 |\n|   13 |   1 |\n|   14 |   1 |\n|   15 |   1 |\n|   16 |   1 |\n|   17 |   1 |\n|   18 |   1 |\n|   19 |   0 |\n"
 
 (defn inc-route-pair [p] {:in (inc (:in p)) :out (inc (:out p))})
+
+(inc-route-pair {:in 0 :out 0})
+;; => {:in 1, :out 1}
 
 (map inc-route-pair (vals (status->layout sample-layout)))
 ;; => ({:out 1, :in 4} {:out 2, :in 2} {:out 3, :in 2} {:out 4, :in 2} {:out 5, :in 2} {:out 6, :in 2} {:out 7, :in 2} {:out 8, :in 2} {:out 9, :in 2} {:out 10, :in 2} {:out 11, :in 2} {:out 12, :in 2} {:out 13, :in 2} {:out 14, :in 2} {:out 15, :in 2} {:out 16, :in 2} {:out 17, :in 2} {:out 18, :in 2} {:out 19, :in 2} {:out 20, :in 1})
