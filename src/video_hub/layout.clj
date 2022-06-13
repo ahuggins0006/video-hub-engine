@@ -6,8 +6,8 @@
 
 
 (defn route-cmd->req
-  [input output]
   "Takes an input/output pair and formats them into a string to build a request to a video hub"
+  [input output]
   (let [out (str (dec output))
         in  (str (dec input))]
     (apply str out " " in "\n"))
@@ -39,6 +39,7 @@
 ;; => "3 0\n4 1\n"
 
 (defn layout->routes-reqs
+  "Builds request string for video output routing status."
   [layout]
   (let [routes (->> layout
                     vals
@@ -68,11 +69,14 @@ sample-layout
 
 (def one-layout '("0 "))
 
-(last "0 ")
-(defn two-str->tuple [s] (map #(Integer/parseInt %)(str/split s #" ")))
+(defn two-str->tuple "Used to convert a string to a tuple."
+  [s]
+  (map #(Integer/parseInt %) (str/split s #" ")))
 
 
-(defn status->layout [lo-status]
+(defn status->layout
+  "Builds a layout from received status string."
+  [lo-status]
   (let [route-keys (map #(inc (.indexOf lo-status %)) lo-status)
         routes     (map (fn [r] {:in (last (two-str->tuple r))
                                  :out (first (two-str->tuple r))}) lo-status)]
@@ -85,6 +89,7 @@ sample-layout
 (def sample-status (with-out-str (pprint/print-table (into [](vals (status->layout sample-layout))))))
 
 (defn status->table
+  "Experimented with pprint table for possible output formatting."
   [status]
   (with-out-str (pprint/print-table (into [](vals (status->layout status)))))
   )
@@ -92,7 +97,9 @@ sample-layout
 (status->table sample-layout)
 ;; => "\n| :out | :in |\n|------+-----|\n|    0 |   3 |\n|    1 |   1 |\n|    2 |   1 |\n|    3 |   1 |\n|    4 |   1 |\n|    5 |   1 |\n|    6 |   1 |\n|    7 |   1 |\n|    8 |   1 |\n|    9 |   1 |\n|   10 |   1 |\n|   11 |   1 |\n|   12 |   1 |\n|   13 |   1 |\n|   14 |   1 |\n|   15 |   1 |\n|   16 |   1 |\n|   17 |   1 |\n|   18 |   1 |\n|   19 |   0 |\n"
 
-(defn inc-route-pair [p] {:in (inc (:in p)) :out (inc (:out p))})
+(defn inc-route-pair
+  "Increments :in and :out for couting starting at 1 rather than 0."
+  [p] {:in (inc (:in p)) :out (inc (:out p))})
 
 (inc-route-pair {:in 0 :out 0})
 ;; => {:in 1, :out 1}

@@ -30,16 +30,18 @@
           :layout-status nil  ;; the current layout status as given by video hub
           }))
 
-(defn load-scene! [scene-file]
+(defn load-scene!
   "Loads a scene-file on respective button press."
+  [scene-file]
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
                                        :scenes (:scenes @*state))
                         :file scene-file)))
 
-(defn update-layout-status! [status]
+(defn update-layout-status!
   "Helper for update-status! and responsible for the data that is displayed at current status."
+  [status]
   (comment (debug (str "received: " status)))
   (when (and (not (or (str/includes? status "LOCKS") (str/includes? status "PRELUDE"))) (str/includes? status "ROUTING"))
     (let [layout-status (rest (str/split status #"\n"))
@@ -49,16 +51,18 @@
         (swap! *state assoc :layout-status layout)))))
 
 
-(defn update-status! []
+(defn update-status!
   "Periodically polls layout status from video hub."
+  []
   (let [c (:client @*state)
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         p (s/periodically 500 #(s/try-put! c req-output-routing 1000))]
     (s/consume #(if (and (str/includes? % "\n\n") (str/includes? % "ROUTING")) (update-layout-status! %)) c)
     (s/consume #(deref %) p)))
 
-(defn connect! [_]
+(defn connect!
   "Establishes a connection at specified ip and port given from config file. Also triggers update-status!"
+  [_]
   (let [client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))]
     (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 1000)) "Success"))
     (if (:connected? @*state)
@@ -67,8 +71,9 @@
         (update-status!))
       (swap! *state assoc :connected? false))))
 
-(defn update-route! [_]
+(defn update-route!
   "Used to update a single specific route in the current layout."
+  [_]
   (when (and (:connected? @*state)
              (some? (:output @*state))
              (some? (:input @*state)))
@@ -77,39 +82,44 @@
     (connect! "")
     (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)))
 
-(defn set-output! [x]
+(defn set-output!
   "Helper for update-route!"
+  [x]
   (swap! *state assoc :output x))
 
-(defn set-input! [x]
+(defn set-input!
   "Helper for update-route!"
+  [x]
   (swap! *state assoc :input x))
 
-(defn name->button [data]
+(defn name->button
   "Used to dynamically create user-defined scene buttons."
+  [data]
   (let [name (name (key data))
         scene-file (val data)]
     {:fx/type :button
      :text name
      :on-action (fn [_] (load-scene! scene-file))}))
 
-(defn scenes->buttons [scenes]
+(defn scenes->buttons
   "Transforms seq of scenes to vec of buttons."
+  [scenes]
   (if (not-empty scenes)
     (->> scenes
          (mapv name->button))
     []))
 
-(defn change-layout! [_]
+(defn change-layout!
   "Sends the loaded scene to the video hub. changes will be reflected in the current layout status box."
+  [_]
   (when (:connected? @*state)
     (connect! "")
     (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
 
 (defmulti handle ::event)
 
-(defmethod handle ::save-file [{:keys [^ActionEvent fx/event]}]
-  "Used to save the current configuration file."
+(defmethod handle ::save-file
+  [{:keys [^ActionEvent fx/event]}]
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Configuration"))]
@@ -121,8 +131,8 @@
                                                     )
                                :dispatch clojure.pprint/code-dispatch)))))
 
-(defmethod handle ::save-scene [{:keys [^ActionEvent fx/event]}]
-  "Used to save the current layout as a user-defined scene file."
+(defmethod handle ::save-scene
+  [{:keys [^ActionEvent fx/event]}]
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Scene"))]
