@@ -16,7 +16,21 @@
   (:import [javafx.stage FileChooser]
            [javafx.event ActionEvent]
            [javafx.scene Node]))
+;; Set up the name of the log output file and delete any contents from previous runs (the
+;; default is to continually append all runs to the file).
+(def log-file-name "log.txt")
+(io/delete-file log-file-name :quiet)
 
+; The default setup is simple console logging.  We with to turn off console logging and
+; turn on file logging to our chosen filename.
+
+; Set the lowest-level to output as :debug
+(timbre/set-level! :debug)
+
+;; Create a "spit to file" appender in timbre v4.0.0: 
+(timbre/merge-config! {:appenders {:spit (appenders/spit-appender {:fname "log.txt"})}})
+
+;;appilcation state
 (def *state
   (atom  {:file nil           ;; current file name
           :connected? false   ;; establised connection with video hub
@@ -68,7 +82,9 @@
     (if (:connected? @*state)
       (do
         (swap! *state assoc :client client)
-        (update-status!))
+        (update-status!)
+        (debug (str "connection established: " (:connection @*state)))
+        )
       (swap! *state assoc :connected? false))))
 
 (defn update-route!
@@ -160,6 +176,7 @@
                            :items (range 1 (inc (count (vals (:layout data)))))
                            :scenes (:scenes data)
                            }}]
+       (debug (str "user attempted to open: " (str (get-in state [:state :file]))))
        (when (:connected? @*state) (connect! "")) ;;refresh connection in opening another file
        (reset! *state state)
        state
