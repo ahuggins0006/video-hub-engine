@@ -89,11 +89,11 @@
 (defn update-route!
   "Used to update a single specific route in the current layout."
   [_]
+  (debug "User pressed UPDATE route")
   (when (and (:connected? @*state)
              (some? (:output @*state))
              (some? (:input @*state)))
-    ;; TODO replace println with logging
-    (println (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
+    (debug (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
     (connect! "")
     (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)))
 
@@ -127,6 +127,7 @@
 (defn change-layout!
   "Sends the loaded scene to the video hub. changes will be reflected in the current layout status box."
   [_]
+  (debug "User pressed SEND layout button")
   (when (:connected? @*state)
     (connect! "")
     (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (:layout (:layout @*state))}) 1000)))
@@ -135,6 +136,7 @@
 
 (defmethod handle ::save-file
   [{:keys [^ActionEvent fx/event]}]
+  (debug "User pressed Save Current Configuration")
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Configuration"))]
@@ -148,6 +150,7 @@
 
 (defmethod handle ::save-scene
   [{:keys [^ActionEvent fx/event]}]
+  (debug "User pressed Save Current to Scene")
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Scene"))]
