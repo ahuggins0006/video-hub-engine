@@ -19,10 +19,6 @@
 
 (def log-file-name (apply str (concat "logs/"(str (.getTime (java.util.Date.))) ".log")))
 
-
-; The default setup is simple console logging.  We with to turn off console logging and
-; turn on file logging to our chosen filename.
-
 ; Set the lowest-level to output as :debug
 (timbre/set-level! :debug)
 
@@ -190,6 +186,7 @@
   {:fx/type :stage
    :title "Video Hub Layout Control"
    :showing true
+   :on-close-request (fn [& _] (System/exit 0))
    :width  900
    :height 700
    :scene {:fx/type :scene
