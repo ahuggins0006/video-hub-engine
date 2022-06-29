@@ -1,22 +1,16 @@
 # video-hub
 
-FIXME: description
+This project intends to provide an interface for changing the layout of a video hub to create specific scenes that can then be reloaded as needed during runtime.
 
 ## Installation
 
-Download from http://example.com/FIXME.
+Clone the repo and run 'lein uberjar' to generate a runnable executable.
 
 ## Usage
 
-FIXME: explanation
+After generating an uberjar with leinegen run the following command
 
-    $ java -jar video-hub-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
+    $ java -jar video-hub-0.1.0-standalone.jar
 
 ...
 
@@ -30,7 +24,6 @@ FIXME: listing of options this app accepts.
 
 ## License
 
-Copyright © 2022 FIXME
 
 This program and the accompanying materials are made available under the
 terms of the Eclipse Public License 2.0 which is available at
