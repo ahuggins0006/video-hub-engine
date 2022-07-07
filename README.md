@@ -25,6 +25,19 @@ After generating an uberjar with leinegen run the following command
 #### SAVE configuration allows the user to save the current configuration.
 #### EXIT allows the user to terminate the application.
 
+### Sample Configuration File
+The application relies on a configuration file to provide
+* A default layout, the one in the sample provided will reset the video hub to a one-to-one layout configuration
+* Connections parameters so that the video hub engine application may communicate with the video hub
+* A list of saved scenes. Scenes are a map of their name and their file location.
+* Layout -> the overall mapping of inputs to outputs for the video hub
+* Scene -> user defined layout; a named layout for future reference.
+* Note about scenes: the application will manage generation and referencing of scene files for the user. If the user
+  has scene files from another video hub engine instance they may be added to the scenes section of the configuration as needed.
+
+![Screenshot_sample_config](https://user-images.githubusercontent.com/2482105/177677154-6389c6cd-b67f-4e4b-a41d-f4d41868c56f.png)
+
+
 ### Bugs
 
 ...
