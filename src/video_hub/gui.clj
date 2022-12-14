@@ -22,7 +22,7 @@
 ; Set the lowest-level to output as :debug
 (timbre/set-level! :debug)
 
-;; Create a "spit to file" appender in timbre v4.0.0: 
+;; Create a "spit to file" appender in timbre v4.0.0:
 (timbre/merge-config! {:appenders {:spit (appenders/spit-appender {:fname log-file-name})}})
 
 ;;appilcation state
@@ -39,14 +39,23 @@
           :layout-status nil  ;; the current layout status as given by video hub
           }))
 
+;; the current stack of layouts for undos
+(def *undo-stack (atom ()))
+
+;; add watch to update *undo-stack on state change
+(add-watch *state :app-state-watcher
+           (fn [key atom old-state new-state])
+           (debug (str "snapshot: " (str old-state)))
+           (swap! *undo-stack conj (:layout-status old-state))
+           )
+
 (defn load-scene!
   "Loads a scene-file on respective button press."
   [scene-file]
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
-                                       :scenes (:scenes @*state))
-                        :file scene-file)))
+                                       :scenes (:scenes @*state))                        :file scene-file)))
 
 (defn update-layout-status!
   "Helper for update-status! and responsible for the data that is displayed at current status."
@@ -82,6 +91,14 @@
         )
       (swap! *state assoc :connected? false))))
 
+(defn undo! []
+  ;; pop @*undo-stack
+  ;; update
+  (when (and (not (empty? @*undo-stack))
+             (:connected? @*state))
+    (connect! "")
+    (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (pop @*undo-stack)}) 1000))
+  )
 (defn update-route!
   "Used to update a single specific route in the current layout."
   [_]
