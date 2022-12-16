@@ -44,9 +44,9 @@
 
 ;; add watch to update *undo-stack on state change
 (add-watch *state :app-state-watcher
-           (fn [key atom old-state new-state])
-           (debug (str "snapshot: " (str old-state)))
-           (swap! *undo-stack conj (:layout-status old-state))
+           (fn [key atom old-state new-state]
+             (debug (str "snapshot: " (str old-state)))
+             (swap! *undo-stack conj (:layout-status old-state)))
            )
 
 (defn load-scene!
@@ -292,13 +292,30 @@
                                           :padding 15
                                           :spacing 10
                                           :children (concat [{:fx/type :label
-                                                            :text "SAVED SCENES"}] (scenes->buttons scenes))}]}
+                                                            :text "SAVED SCENES"}] (scenes->buttons scenes))}
+
+                                         ]}
+
                              {:fx/type :button
                               :text "SAVE configuration"
                               :on-action {::event ::save-file}}
                              {:fx/type :button
                               :text "EXIT"
                               :on-action (fn [_] (System/exit 0))}
+
+                             ;; TODO temporary test button to toggle solo mode on a very specific multi-4
+                             {:fx/type   :button
+                              :text      "TOGGLE Solo mode"
+                              :on-action (fn [_]((let [c             (cli/try-client "192.168.50.150" 9990)
+                                                       solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
+
+                                                   (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                                                          (not solo-enabled?)
+                                                                          "\n\n") 1000)
+                                                       (.close c)
+                                                       ))
+                                                 ))
+                              }
                              ]}}})
 
 (def renderer
