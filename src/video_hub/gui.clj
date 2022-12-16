@@ -265,7 +265,7 @@
                                                       :pref-width 200
                                                       :text (with-out-str
                                                               (pprint/print-table
-                                                               (sort-by first
+                                                               (sort-by second
                                                                         (into [] (vals (:layout layout))))))}
                                                      {:fx/type :button
                                                       :text "SEND layout"
@@ -282,7 +282,7 @@
                                                       :pref-width 200
                                                       :text (with-out-str
                                                               (pprint/print-table
-                                                               (sort-by first
+                                                               (sort-by second
                                                                         (into [] (map lo/inc-route-pair (vals (:layout layout-status)))))))}
                                                      {:fx/type :button
                                                       :text "SAVE current to scene"
