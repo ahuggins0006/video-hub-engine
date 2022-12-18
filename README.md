@@ -7,6 +7,7 @@ This project composes a number of libraries to provide a solution.
 * manifold
 * timbre
 * cljfx
+
 Aleph, gloss, and manifold are used in combination to provide tcp interaction between video-hub-engine and the video hub. Timbre is used for logging. Cljfx is used as for the GUI components. Aleph was chosen for the tcp client because prior experimentation with tcp libraries showed that aleph, gloss, and manifold together provide the most flexibility as far as configuration. Timbre was chosen as the logging solution because it is written purely Clojure and configurable using pure Clojure. Cljfx is used since it is a declarative wrapper using pure Clojure. There abundance of openjfx dependencies are due to cross-platform compatibility of uberjars and graphical libraries.
 
 ## Installation
