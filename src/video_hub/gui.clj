@@ -42,11 +42,20 @@
 ;; the current stack of layouts for undos
 (def *undo-stack (atom ()))
 
+;; block of code used to test undo-stack
+(comment (def instect-stack @*undo-stack)
+         (swap! *state assoc :layout-status (:layout @*state))
+         (:layout (:layout @*state)))
+
 ;; add watch to update *undo-stack on state change
 (add-watch *state :app-state-watcher
            (fn [key atom old-state new-state]
              (debug (str "snapshot: " (str old-state)))
-             (swap! *undo-stack conj (:layout-status old-state)))
+             (let [layout-old (:layout-status old-state)
+                   layout-new (:layout-status new-state)]
+               (when (and (some? layout-old )
+                          (not (= layout-old layout-new)))
+                 (swap! *undo-stack conj layout-old))))
            )
 
 (defn load-scene!
@@ -97,8 +106,9 @@
   (when (and (not (empty? @*undo-stack))
              (:connected? @*state))
     (connect! "")
-    (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (pop @*undo-stack)}) 1000))
+    (s/try-put! (:client @*state) (lo/layout->routes-reqs (:layout (pop @*undo-stack))) 1000))
   )
+
 (defn update-route!
   "Used to update a single specific route in the current layout."
   [_]
