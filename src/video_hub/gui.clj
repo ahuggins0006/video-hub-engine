@@ -163,44 +163,52 @@
         connection (:connection (val quad-config))
         connected? (:connected? (val quad-config))
         ]
-    [{:fx/type  :h-box
-               :spacing  10
-               :children [{:fx/type :label
-                           :text    (str name)}
-                          {:fx/type :label
-                           :text    (str "Connected? " connected?)}
-                          ]}
-              {:fx/type  :h-box
-               :spacing  10
-               :children [{:fx/type :button :text "1"}
-                          {:fx/type :button :text "2"}]}
+    {:fx/type fx/ext-let-refs
+     :refs {::toggle-group {:fx/type :toggle-group}}
+     :desc {:fx/type :v-box
+            :padding 20
+            :spacing 10
+            :children [{:fx/type  :h-box
+                        :spacing  10
+                        :children [{:fx/type :label
+                                    :text    (str name)}
+                                   {:fx/type :label
+                                    :text    (str "Connected? " connected?)}
+                                   ]}
+                       {:fx/type  :h-box
+                        :spacing  10
+                        :children [{:fx/type :toggle-button :text "1" :toggle-group {:fx/type fx/ext-get-ref
+                                                                                     :ref ::toggle-group}}
+                                   {:fx/type :toggle-button :text "2" :toggle-group {:fx/type fx/ext-get-ref
+                                                                                     :ref     ::toggle-group}}]}
 
-              {:fx/type  :h-box
-               :spacing  10
-               :children [{:fx/type :button :text "3"}
-                          {:fx/type :button :text "4"}]}
+                       {:fx/type  :h-box
+                        :spacing  10
+                        :children [{:fx/type :toggle-button :text "3" :toggle-group {:fx/type fx/ext-get-ref
+                                                                                     :ref     ::toggle-group}}
+                                   {:fx/type :toggle-button :text "4" :toggle-group {:fx/type fx/ext-get-ref
+                                                                                     :ref     ::toggle-group}}]}
 
-              {:fx/type   :button
-               :text      "TOGGLE Solo mode"
-               :on-action (fn [_] ((let [c             (cli/try-client (:ip connection) (:port connection))
-                                         solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
+                       {:fx/type   :button
+                        :text      "TOGGLE Solo mode"
+                        :on-action (fn [_] ((let [c             (cli/try-client (:ip connection) (:port connection))
+                                                  solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
 
-                                     (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
-                                                            (not solo-enabled?)
-                                                            "\n\n") 1000)
-                                         (.close c)))))}]))
+                                              (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                                                     (not solo-enabled?)
+                                                                     "\n\n") 1000)
+                                                  (.close c)))))}]}}))
 
 (defn quad-data->component [quad-configs]
   (if (not-empty quad-configs)
     (->> quad-configs
          (mapv quad-component)
-         (apply concat)
          (into [])
          )
     [])
   )
 
-(into [] (apply concat (quad-data->component {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})))
+(into [] (quad-data->component {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}}))
 
 (get-in (val (first {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})) [:connection :ip])
 (defn change-layout!
