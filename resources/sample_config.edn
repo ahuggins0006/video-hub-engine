@@ -1,13 +1,13 @@
 {:layout
- {1 {:in 1, :out 1},
-  2 {:in 2, :out 2},
-  3 {:in 3, :out 3},
-  4 {:in 4, :out 4},
-  5 {:in 5, :out 5},
-  6 {:in 6, :out 6},
-  7 {:in 7, :out 7},
-  8 {:in 8, :out 8},
-  9 {:in 9, :out 9},
+ {1  {:in 1, :out 1},
+  2  {:in 2, :out 2},
+  3  {:in 3, :out 3},
+  4  {:in 4, :out 4},
+  5  {:in 5, :out 5},
+  6  {:in 6, :out 6},
+  7  {:in 7, :out 7},
+  8  {:in 8, :out 8},
+  9  {:in 9, :out 9},
   10 {:in 10, :out 10},
   11 {:in 11, :out 11},
   12 {:in 12, :out 12},
@@ -19,7 +19,15 @@
   18 {:in 18, :out 18},
   19 {:in 19, :out 19},
   20 {:in 20, :out 20}},
+
+ ;; smart video hub connection
  :connection {:ip "", :port 9999},
+
+ ;; user defined scenes
  :scenes
- {:scene "path-to-scene-file",
-  :scene-2 "path-to-scene-file-2"}}
+ {:scene   "path-to-scene-file",
+  :scene-2 "path-to-scene-file-2"}
+
+ ;; multi view 4 devices or quads for short
+ :quads {:q1 {:connection {:ip "localhost", :port 8888}},
+         :q2 {:connection {:ip "", :port 7777}}}}

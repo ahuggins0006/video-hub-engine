@@ -37,6 +37,7 @@
           :client nil         ;; current client used for connection with video hub
           :layout nil         ;; the layout includes a default layout, connection, and scenes
           :layout-status nil  ;; the current layout status as given by video hub
+          :quads {}           ;; multi view 4 devices or quads for short
           }))
 
 ;; the current stack of layouts for undos
@@ -147,6 +148,61 @@
          (mapv name->button))
     []))
 
+(def test-quads {:quads {:q1 {:connection {:ip "", :port 8888}}
+                         :q2 {:connection {:ip "", :port 7777}}}})
+
+(into {}
+      (for [q (:quads test-quads)]
+        {(key q) (merge (val q) {:connected? nil})}
+        ))
+;; => {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}}
+
+(defn quad-component [quad-config]
+  "create quad component from quad configuration data map"
+  (let [name (key quad-config)
+        connection (:connection (val quad-config))
+        connected? (:connected? (val quad-config))
+        ]
+    [{:fx/type  :h-box
+               :spacing  10
+               :children [{:fx/type :label
+                           :text    (str name)}
+                          {:fx/type :label
+                           :text    (str "Connected? " connected?)}
+                          ]}
+              {:fx/type  :h-box
+               :spacing  10
+               :children [{:fx/type :button :text "1"}
+                          {:fx/type :button :text "2"}]}
+
+              {:fx/type  :h-box
+               :spacing  10
+               :children [{:fx/type :button :text "3"}
+                          {:fx/type :button :text "4"}]}
+
+              {:fx/type   :button
+               :text      "TOGGLE Solo mode"
+               :on-action (fn [_] ((let [c             (cli/try-client (:ip connection) (:port connection))
+                                         solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
+
+                                     (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                                            (not solo-enabled?)
+                                                            "\n\n") 1000)
+                                         (.close c)))))}]))
+
+(defn quad-data->component [quad-configs]
+  (if (not-empty quad-configs)
+    (->> quad-configs
+         (mapv quad-component)
+         (apply concat)
+         (into [])
+         )
+    [])
+  )
+
+(into [] (apply concat (quad-data->component {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})))
+
+(get-in (val (first {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})) [:connection :ip])
 (defn change-layout!
   "Sends the loaded scene to the video hub. changes will be reflected in the current layout status box."
   [_]
@@ -178,14 +234,13 @@
         chooser (doto (FileChooser.)
                   (.setTitle "Save Current Scene"))]
     (when-let [file (.showSaveDialog chooser window)]
-      (let [name (first (str/split (last (str/split (str file) #"/")) #"\."))]
+      (let [name (first (str/split (.getName file) #"\."))]
         (swap! *state assoc :scenes (conj (:scenes @*state) {(keyword name) (.getAbsolutePath file)}))
         (spit file (with-out-str (clojure.pprint/write {:name name
                                                         :layout (into {} (for [v (:layout (:layout-status @*state))]
                                                                            {(key v) (lo/inc-route-pair (val v))}))}
                                                        )
                      :dispatch clojure.pprint/code-dispatch))))))
-
 
 (defmethod handle ::open-file [{:keys [^ActionEvent fx/event]}]
   (let [window (.getWindow (.getScene ^Node (.getTarget event)))
@@ -198,23 +253,29 @@
                            :connection (:connection data)
                            :connected? (:connected? @*state)
                            :client     (:client @*state)
-                           :items (range 1 (inc (count (vals (:layout data)))))
-                           :scenes (:scenes data)
-                           }}]
-       (debug (str "user attempted to open: " (str (get-in state [:state :file]))))
-       (when (:connected? @*state) (connect! "")) ;;refresh connection in opening another file
-       (reset! *state state)
-       state
-        ))))
+                           :items      (range 1 (inc (count (vals (:layout data)))))
+                           :scenes     (:scenes data)
+                           :quads      (into
+                                        {}
+                                        (for
+                                         [q (:quads data)]
+                                         {(key q) (merge
+                                                   (val q)
+                                                   {:connected? (cli/ping-something (get-in (val q) [:connection :ip]))})}))}}]
+
+        (debug (str "user attempted to open: " (str (get-in state [:state :file]))))
+        (when (:connected? @*state) (connect! "")) ;;refresh connection in opening another file
+        (reset! *state state)
+        state))))
 
 
 
-(defn root-view [{:keys [file layout layout-status items output input connection connected? client scenes]}]
+(defn root-view [{:keys [file layout layout-status items output input connection connected? client scenes quads]}]
   {:fx/type :stage
    :title "Video Hub Layout Control"
    :showing true
    :on-close-request (fn [& _] (System/exit 0))
-   :width  900
+   :width  1200
    :height 700
    :scene {:fx/type :scene
            :root {:fx/type :v-box
@@ -232,56 +293,42 @@
                                          {:fx/type :label
                                           :text (str connection)}
                                          {:fx/type :label
-                                          :text (str "Connected? " connected?)}
-                                         {:fx/type :h-box
-                                          :padding 5
-                                          :spacing 10
-                                          :children [{:fx/type :v-box
-                                                      :spacing 3
-                                                      :children [{:fx/type :label
-                                                                  :text "INPUT"}
-                                                                 {:fx/type :combo-box
-                                                                  :value input
-                                                                  :on-value-changed set-input!
-                                                                  :items items}]}
-                                                     {:fx/type :v-box
-                                                      :spacing 3
-                                                      :children [{:fx/type :label
-                                                                  :text "OUTPUT"}
-                                                                 {:fx/type :combo-box
-                                                                  :value output
-                                                                  :on-value-changed set-output!
-                                                                  :items items}]}
-                                                     {:fx/type :v-box
-                                                      :padding 18
-                                                      :spacing 3
-                                                      :children [{:fx/type :button
-                                                                  :text "UPDATE route..."
-                                                                  :on-action update-route!}]}
-                                                     ]}
-                                         ]}
+                                          :text (str "Connected? " connected?)}]}
+                             {:fx/type :h-box
+                              :padding 5
+                              :spacing 10
+                              :children [{:fx/type :v-box
+                                          :spacing 3
+                                          :children [{:fx/type :label
+                                                      :text "INPUT"}
+                                                     {:fx/type :combo-box
+                                                      :value input
+                                                      :on-value-changed set-input!
+                                                      :items items}]}
+                                         {:fx/type :v-box
+                                          :spacing 3
+                                          :children [{:fx/type :label
+                                                      :text "OUTPUT"}
+                                                     {:fx/type :combo-box
+                                                      :value output
+                                                      :on-value-changed set-output!
+                                                      :items items}]}
+                                         {:fx/type :v-box
+                                          :padding 19
+                                          :spacing 3
+                                          :children [{:fx/type :button
+                                                      :text "UPDATE route..."
+                                                      :on-action update-route!}]}
+                                         {:fx/type  :v-box
+                                          :padding  19
+                                          :spacing  3
+                                          :children [{:fx/type   :button
+                                                      :text      "UNDO"
+                                                      :on-action undo!}]}]}
+
                              {:fx/type :h-box
                               :spacing 30
                               :children [{:fx/type :v-box
-                                          :padding 15
-                                          :spacing 5
-                                          :children [{:fx/type :label
-                                                      :pref-width 200
-                                                      :wrap-text true
-                                                      :text (str (last (str/split (str file) #"/")))}
-                                                     {:fx/type :text-area
-                                                      :editable false
-                                                      :pref-height 400
-                                                      :pref-width 200
-                                                      :text (with-out-str
-                                                              (pprint/print-table
-                                                               (sort-by second
-                                                                        (into [] (vals (:layout layout))))))}
-                                                     {:fx/type :button
-                                                      :text "SEND layout"
-                                                      :on-action change-layout!}
-                                                     ]}
-                                         {:fx/type :v-box
                                           :spacing 5
                                           :padding 15
                                           :children [{:fx/type :label
@@ -296,37 +343,42 @@
                                                                         (into [] (map lo/inc-route-pair (vals (:layout layout-status)))))))}
                                                      {:fx/type :button
                                                       :text "SAVE current to scene"
-                                                      :on-action {::event ::save-scene}}
-                                                     ]}
+                                                      :on-action {::event ::save-scene}}]}
+                                         {:fx/type :v-box
+                                          :padding 15
+                                          :spacing 5
+                                          :children [{:fx/type :label
+                                                      :pref-width 200
+                                                      :wrap-text true
+                                                      :text (when (some? file) (.getName file))}
+                                                     {:fx/type :text-area
+                                                      :editable false
+                                                      :pref-height 400
+                                                      :pref-width 200
+                                                      :text (with-out-str
+                                                              (pprint/print-table
+                                                               (sort-by second
+                                                                        (into [] (vals (:layout layout))))))}
+                                                     {:fx/type :button
+                                                      :text "SEND layout"
+                                                      :on-action change-layout!}]}
                                          {:fx/type :v-box
                                           :padding 15
                                           :spacing 10
                                           :children (concat [{:fx/type :label
-                                                            :text "SAVED SCENES"}] (scenes->buttons scenes))}
-
-                                         ]}
+                                                              :text "SAVED SCENES"}] (scenes->buttons scenes))}
+                                         ;; quads
+                                         {:fx/type :v-box
+                                          :padding 15
+                                          :spacing 10
+                                          :children   (quad-data->component (:quads @*state)) }]}
 
                              {:fx/type :button
                               :text "SAVE configuration"
                               :on-action {::event ::save-file}}
                              {:fx/type :button
                               :text "EXIT"
-                              :on-action (fn [_] (System/exit 0))}
-
-                             ;; TODO temporary test button to toggle solo mode on a very specific multi-4
-                             {:fx/type   :button
-                              :text      "TOGGLE Solo mode"
-                              :on-action (fn [_]((let [c             (cli/try-client "192.168.50.150" 9990)
-                                                       solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
-
-                                                   (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
-                                                                          (not solo-enabled?)
-                                                                          "\n\n") 1000)
-                                                       (.close c)
-                                                       ))
-                                                 ))
-                              }
-                             ]}}})
+                              :on-action (fn [_] (System/exit 0))}]}}})
 
 (def renderer
   (fx/create-renderer
