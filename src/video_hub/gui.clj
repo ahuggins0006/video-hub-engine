@@ -65,7 +65,7 @@
   (let [data (edn/read-string (slurp scene-file))]
     (swap! *state assoc :layout (assoc {} :layout (:layout data)
                                        :connection (:connection @*state)
-                                       :scenes (:scenes @*state))                        :file scene-file)))
+                                       :scenes (:scenes @*state))                        :file (io/file scene-file))))
 
 (defn update-layout-status!
   "Helper for update-status! and responsible for the data that is displayed at current status."
@@ -86,7 +86,8 @@
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
         p (s/periodically 500 #(s/try-put! c req-output-routing 1000))]
     (s/consume #(if (and (str/includes? % "\n\n") (str/includes? % "ROUTING")) (update-layout-status! %)) c)
-    (s/consume #(deref %) p)))
+    (s/consume #(deref %) p)
+    ))
 
 (defn connect!
   "Establishes a connection at specified ip and port given from config file. Also triggers update-status!"
@@ -157,47 +158,154 @@
         ))
 ;; => {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}}
 
+;; test change source
+
+(comment
+
+  (defn take-all! [cli-conn]
+    (loop [c cli-conn s ""]
+      (let [c-data @(s/try-take! c 250)]
+        (if (nil? c-data)
+          s
+          (recur c (str s c-data))
+          ))
+
+      )
+    )
+  (let [c (cli/try-client "192.168.50.150" 9990)]
+
+           (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
+                                  "4 0"
+                                  "\n\n") 1000)
+               (debug @(s/try-take! c 1000))
+               (.close c)))
+
+         (let [c             (cli/try-client "192.168.50.150" 9990)
+               response           @(s/take! c)
+               solo-enabled? (Boolean/parseBoolean (last (when (> (count response) 47) (str/split (response 47) #" "))))]
+
+           (debug response)
+           (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                  (not solo-enabled?)
+                                  "\n\n") 1000)
+
+               (.close c)))
+
+         (let [c (cli/try-client "192.168.50.150" 9990)]
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (debug @(s/try-take! c 1000))
+           (.close c))
+
+         (let [c (cli/try-client "192.168.50.150" 9990)]
+           (s/consume #(println %) c)
+           (.close c)
+           )
+
+         (let [c (cli/try-client "192.168.50.150" 9990)
+               d @(s/try-take! c 1000)]
+           (while (not (nil? d)) (debug d)
+             )
+           (.close c)
+           )
+
+         (let [c (cli/try-client "192.168.50.150" 9990)]
+           (debug (take-all! c))
+           (.close c)
+           )
+;; => nil
+
+         (let [c             (cli/try-client "192.168.50.150" 9990)
+               response      (take-all! c)
+               solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines response) 47) #" ")))
+               ]
+
+            (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                            (not solo-enabled?)
+                                            "\n\n") 1000)
+
+                         (.close c))
+
+           )
+         )
+
 (defn quad-component [quad-config]
   "create quad component from quad configuration data map"
-  (let [name (key quad-config)
+  (let [name       (key quad-config)
         connection (:connection (val quad-config))
         connected? (:connected? (val quad-config))
         ]
-    {:fx/type fx/ext-let-refs
-     :refs {::toggle-group {:fx/type :toggle-group}}
-     :desc {:fx/type :v-box
-            :padding 20
-            :spacing 10
-            :children [{:fx/type  :h-box
-                        :spacing  10
-                        :children [{:fx/type :label
-                                    :text    (str name)}
-                                   {:fx/type :label
-                                    :text    (str "Connected? " connected?)}
-                                   ]}
-                       {:fx/type  :h-box
-                        :spacing  10
-                        :children [{:fx/type :toggle-button :text "1" :toggle-group {:fx/type fx/ext-get-ref
-                                                                                     :ref ::toggle-group}}
-                                   {:fx/type :toggle-button :text "2" :toggle-group {:fx/type fx/ext-get-ref
-                                                                                     :ref     ::toggle-group}}]}
 
-                       {:fx/type  :h-box
-                        :spacing  10
-                        :children [{:fx/type :toggle-button :text "3" :toggle-group {:fx/type fx/ext-get-ref
-                                                                                     :ref     ::toggle-group}}
-                                   {:fx/type :toggle-button :text "4" :toggle-group {:fx/type fx/ext-get-ref
-                                                                                     :ref     ::toggle-group}}]}
+    {:fx/type  :v-box
+     :padding  -10
+     :spacing  0
+     :children [{:fx/type fx/ext-let-refs
+                 :refs    {::toggle-group {:fx/type :toggle-group}}
+                 :desc    {:fx/type  :v-box
+                           :padding  20
+                           :spacing  10
+                           :children [{:fx/type  :h-box
+                                       :spacing  10
+                                       :children [{:fx/type :label
+                                                   :text    (str name)}
+                                                  {:fx/type :label
+                                                   :text    (str "Connected? " connected?)}]}
+                                      {:fx/type  :h-box
+                                       :spacing  10
+                                       :children [{:fx/type   :toggle-button
+                                                   :text      "1"
+                                                   :on-action (fn [_] (let [c (cli/try-client (:ip connection) (:port connection))]
 
-                       {:fx/type   :button
-                        :text      "TOGGLE Solo mode"
-                        :on-action (fn [_] ((let [c             (cli/try-client (:ip connection) (:port connection))
-                                                  solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines @(s/take! c)) 47) #" ")))]
+                                                                        (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
+                                                                                               "4 0"
+                                                                                               "\n\n") 1000)
+                                                                            (debug @(s/take! c))
+                                                                            (.close c))))
 
-                                              (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
-                                                                     (not solo-enabled?)
-                                                                     "\n\n") 1000)
-                                                  (.close c)))))}]}}))
+                                                   :toggle-group {:fx/type fx/ext-get-ref
+                                                                  :ref     ::toggle-group}}
+
+                                                  {:fx/type      :toggle-button
+                                                   :text         "2"
+;:on-action '(change-source "1")
+                                                   :toggle-group {:fx/type fx/ext-get-ref
+                                                                  :ref     ::toggle-group}}]}
+
+                                      {:fx/type  :h-box
+                                       :spacing  10
+                                       :children [{:fx/type      :toggle-button
+                                                   :text         "3"
+;:on-action '(change-source "2")
+                                                   :toggle-group {:fx/type fx/ext-get-ref
+                                                                  :ref     ::toggle-group}}
+
+                                                  {:fx/type      :toggle-button
+                                                   :text         "4"
+;:on-action '(change-source "3")
+                                                   :toggle-group {:fx/type fx/ext-get-ref
+                                                                  :ref     ::toggle-group}}]}
+
+                                      ]}}
+                {:fx/type   :button
+                 :text      "TOGGLE Solo mode"
+                 :on-action (fn [_] (let [c             (cli/try-client "192.168.50.150" 9990)
+                                          response      (cli/take-all! c)
+                                          solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines response) 47) #" ")))
+                                          ]
+
+                                      (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
+                                                             (not solo-enabled?)
+                                                             "\n\n") 1000)
+
+                                          (.close c))
+
+                                      ))}
+                ]}))
 
 (defn quad-data->component [quad-configs]
   (if (not-empty quad-configs)
@@ -208,7 +316,7 @@
     [])
   )
 
-(into [] (quad-data->component {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}}))
+(quad-data->component {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})
 
 (get-in (val (first {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}})) [:connection :ip])
 (defn change-layout!

@@ -34,3 +34,14 @@
     ("windows 10"
      "windows 11") (str/includes? (:out (shell/sh "cmd" "/C" "powershell.exe" "Test-Connection" something "-Quiet" "-Count" "1")) "True")))
 
+(defn take-all! [cli-conn]
+  "takes from a source until nil is reached"
+  (loop [c cli-conn s ""]
+    (let [c-data @(s/try-take! c 250)]
+      (if (nil? c-data)
+        s
+        (recur c (str s c-data))
+        ))
+
+    )
+  )
