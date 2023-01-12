@@ -98,7 +98,7 @@ sample-layout
 ;; => "\n| :out | :in |\n|------+-----|\n|    0 |   3 |\n|    1 |   1 |\n|    2 |   1 |\n|    3 |   1 |\n|    4 |   1 |\n|    5 |   1 |\n|    6 |   1 |\n|    7 |   1 |\n|    8 |   1 |\n|    9 |   1 |\n|   10 |   1 |\n|   11 |   1 |\n|   12 |   1 |\n|   13 |   1 |\n|   14 |   1 |\n|   15 |   1 |\n|   16 |   1 |\n|   17 |   1 |\n|   18 |   1 |\n|   19 |   0 |\n"
 
 (defn inc-route-pair
-  "Increments :in and :out for couting starting at 1 rather than 0."
+  "Increments :in and :out for counting starting at 1 rather than 0."
   [p] {:in (inc (:in p)) :out (inc (:out p))})
 
 (inc-route-pair {:in 0 :out 0})
@@ -118,5 +118,4 @@ sample-layout
 
 (map #(update-in (:layout save-test) [%] inc-route-pair) save-test)
 
-(for [v (:layout save-test)] v)
 (assoc save-test :layout (into {} (for [v (:layout save-test)] {(key v) (inc-route-pair (val v))})))

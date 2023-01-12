@@ -6,6 +6,7 @@
    [clojure.pprint :as pprint]
    [clojure.edn :as edn]
    [clojure.java.io :as io]
+   [clojure.data :as data]
    [taoensso.timbre :as timbre
     :refer [log  trace  debug  info  warn  error  fatal  report
             logf tracef debugf infof warnf errorf fatalf reportf
@@ -28,7 +29,7 @@
 ;;appilcation state
 (def *state
   (atom  {:file nil           ;; current file name
-          :connected? false   ;; establised connection with video hub
+          :connected? false   ;; established connection with video hub
           :output nil         ;; placeholder for output combo value
           :input  nil         ;; placeholder for output combo value
           :connection nil     ;; connection info
@@ -43,20 +44,46 @@
 ;; the current stack of layouts for undos
 (def *undo-stack (atom ()))
 
+(comment (def test-atom (atom ()))
+
+         (swap! test-atom conj 2)
+
+         @test-atom
+
+         (swap! test-atom conj 3)
+
+         (swap! test-atom pop)
+
+         @*undo-stack
+         @*undo-stack
+         (count @*undo-stack)
+         (first @*undo-stack)
+         (second @*undo-stack)
+         (nth @*undo-stack 2)
+         {:layout (into {} (for [v (first @*undo-stack)] {(key v) (lo/inc-route-pair (val v))}))}
+         (lo/layout->routes-reqs {:layout (into {} (for [v (first @*undo-stack)] {(key v) (lo/inc-route-pair (val v))}))})
+
+         )
+
+
 ;; block of code used to test undo-stack
-(comment (def instect-stack @*undo-stack)
+(comment (def inspect-stack @*undo-stack)
+         inspect-stack
          (swap! *state assoc :layout-status (:layout @*state))
          (:layout (:layout @*state)))
 
+(def undo-watcher (fn [key atom old-state new-state]
+                    (let [layout-old (:layout (:layout-status old-state))
+                          layout-new (:layout (:layout-status new-state))]
+                      (when (and (some? layout-old )
+                                 (not (= layout-old layout-new)))
+                        (do
+                          (debug "layouts not equal")
+                          (swap! *undo-stack conj layout-old))))))
+
 ;; add watch to update *undo-stack on state change
 (add-watch *state :app-state-watcher
-           (fn [key atom old-state new-state]
-             (debug (str "snapshot: " (str old-state)))
-             (let [layout-old (:layout-status old-state)
-                   layout-new (:layout-status new-state)]
-               (when (and (some? layout-old )
-                          (not (= layout-old layout-new)))
-                 (swap! *undo-stack conj layout-old))))
+          undo-watcher
            )
 
 (defn load-scene!
@@ -84,7 +111,7 @@
   []
   (let [c (:client @*state)
         req-output-routing "VIDEO OUTPUT ROUTING:\n\n"
-        p (s/periodically 500 #(s/try-put! c req-output-routing 1000))]
+        p (s/periodically 500 #(s/try-put! c req-output-routing 500))]
     (s/consume #(if (and (str/includes? % "\n\n") (str/includes? % "ROUTING")) (update-layout-status! %)) c)
     (s/consume #(deref %) p)
     ))
@@ -93,7 +120,7 @@
   "Establishes a connection at specified ip and port given from config file. Also triggers update-status!"
   [_]
   (let [client (cli/try-client (:ip (:connection @*state)) (:port (:connection @*state)))]
-    (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 1000)) "Success"))
+    (swap! *state assoc :connected? (str/includes? (str (s/try-put! client "PING:\n\n" 500)) "Success"))
     (if (:connected? @*state)
       (do
         (swap! *state assoc :client client)
@@ -102,13 +129,21 @@
         )
       (swap! *state assoc :connected? false))))
 
-(defn undo! []
+(defn undo! [_]
   ;; pop @*undo-stack
   ;; update
   (when (and (not (empty? @*undo-stack))
              (:connected? @*state))
     (connect! "")
-    (s/try-put! (:client @*state) (lo/layout->routes-reqs (:layout (pop @*undo-stack))) 1000))
+    (remove-watch *state :app-state-watcher)
+    (s/try-put! (:client @*state) (lo/layout->routes-reqs {:layout (into {} (for [v (first @*undo-stack)] {(key v) (lo/inc-route-pair (val v))}))}) 500)
+    (swap! *undo-stack pop)
+    ;; give pause for state to change
+    (Thread/sleep 250)
+    (add-watch *state :app-state-watcher
+                         undo-watcher
+                         )
+    )
   )
 
 (defn update-route!
@@ -120,7 +155,7 @@
              (some? (:input @*state)))
     (debug (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n"))
     (connect! "")
-    (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 1000)))
+    (s/try-put! (:client @*state) (str "VIDEO OUTPUT ROUTING:\n" (dec (:output @*state)) " " (dec (:input @*state)) "\n\n") 500)))
 
 (defn set-output!
   "Helper for update-route!"
@@ -234,12 +269,12 @@
            )
          )
 
+
 (defn quad-component [quad-config]
   "create quad component from quad configuration data map"
   (let [name       (key quad-config)
         connection (:connection (val quad-config))
-        connected? (:connected? (val quad-config))
-        ]
+        connected? (:connected? (val quad-config))]
 
     {:fx/type  :v-box
      :padding  -10
@@ -259,12 +294,14 @@
                                        :spacing  10
                                        :children [{:fx/type   :toggle-button
                                                    :text      "1"
-                                                   :on-action (fn [_] (let [c (cli/try-client (:ip connection) (:port connection))]
+                                                   :on-action (fn [_] (let [c (cli/try-client (:ip connection) (:port connection))
+                                                                            fixed-output 5
+                                                                            source       1]
 
                                                                         (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
-                                                                                               "4 0"
-                                                                                               "\n\n") 1000)
-                                                                            (debug @(s/take! c))
+                                                                                               (lo/route-cmd->req source fixed-output)
+                                                                                               "\n") 250)
+                                                                            (debug (cli/take-all! c))
                                                                             (.close c))))
 
                                                    :toggle-group {:fx/type fx/ext-get-ref
@@ -272,7 +309,15 @@
 
                                                   {:fx/type      :toggle-button
                                                    :text         "2"
-;:on-action '(change-source "1")
+                                                   :on-action    (fn [_] (let [c            (cli/try-client (:ip connection) (:port connection))
+                                                                               fixed-output 5
+                                                                               source       2]
+
+                                                                           (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
+                                                                                                  (lo/route-cmd->req source fixed-output)
+                                                                                                  "\n") 250)
+                                                                               (debug (cli/take-all! c))
+                                                                               (.close c))))
                                                    :toggle-group {:fx/type fx/ext-get-ref
                                                                   :ref     ::toggle-group}}]}
 
@@ -280,32 +325,43 @@
                                        :spacing  10
                                        :children [{:fx/type      :toggle-button
                                                    :text         "3"
-;:on-action '(change-source "2")
+                                                   :on-action    (fn [_] (let [c            (cli/try-client (:ip connection) (:port connection))
+                                                                               fixed-output 5
+                                                                               source       3]
+
+                                                                           (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
+                                                                                                  (lo/route-cmd->req source fixed-output)
+                                                                                                  "\n") 250)
+                                                                               (debug (cli/take-all! c))
+                                                                               (.close c))))
                                                    :toggle-group {:fx/type fx/ext-get-ref
                                                                   :ref     ::toggle-group}}
 
                                                   {:fx/type      :toggle-button
                                                    :text         "4"
-;:on-action '(change-source "3")
-                                                   :toggle-group {:fx/type fx/ext-get-ref
-                                                                  :ref     ::toggle-group}}]}
+                                                   :on-action    (fn [_] (let [c            (cli/try-client (:ip connection) (:port connection))
+                                                                               fixed-output 5
+                                                                               source       4]
 
-                                      ]}}
+                                                                           (do (s/try-put! c (str "VIDEO OUTPUT ROUTING:\n "
+                                                                                                  (lo/route-cmd->req source fixed-output)
+                                                                                                  "\n") 250)
+                                                                               (debug (cli/take-all! c))
+                                                                               (.close c))))
+                                                   :toggle-group {:fx/type fx/ext-get-ref
+                                                                  :ref     ::toggle-group}}]}]}}
+
                 {:fx/type   :button
                  :text      "TOGGLE Solo mode"
                  :on-action (fn [_] (let [c             (cli/try-client "192.168.50.150" 9990)
                                           response      (cli/take-all! c)
-                                          solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines response) 47) #" ")))
-                                          ]
+                                          solo-enabled? (Boolean/parseBoolean (last (str/split ((str/split-lines response) 47) #" ")))]
 
                                       (do (s/try-put! c (str "CONFIGURATION:\n Solo enabled: "
                                                              (not solo-enabled?)
                                                              "\n\n") 1000)
 
-                                          (.close c))
-
-                                      ))}
-                ]}))
+                                          (.close c))))}]}))
 
 (defn quad-data->component [quad-configs]
   (if (not-empty quad-configs)
