@@ -193,8 +193,7 @@
         ))
 ;; => {:q1 {:connection {:ip "", :port 8888}, :connected? nil}, :q2 {:connection {:ip "", :port 7777}, :connected? nil}}
 
-;; test change source
-
+;; comment block to test change source with quads
 (comment
 
   (defn take-all! [cli-conn]
